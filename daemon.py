@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-import sys, os, time, atexit
+import sys, os, time, atexit, socket
 from subprocess import run, PIPE
 from pathlib import Path
 from threading import Thread
@@ -21,12 +21,18 @@ def query_worker() :
     global results
 
     while not stop :
-        p = run("ssh " + settings["user"] + "@" + settings["server"] + " '" + command_list + "'", shell=True, stdout=PIPE, encoding='ascii')
+        print("ssh " + settings["user"] + "@" + settings["server"] + " " + command_list)
+        p = run("ssh " + settings["user"] + "@" + settings["server"] + " " + command_list, shell=True, stdout=PIPE, encoding='utf-8')
 
-        for num, result in enumerate(p.stdout.split()) :
+        for num, result in enumerate(p.stdout.split("\n")) :
             results[list(commands.keys())[num]] = result
-        print(results)
         time.sleep(int(settings["interval"]))
+
+def cleanup() :
+    global stop
+    stop = True
+
+atexit.register(cleanup)
 
 if len(sys.argv) == 1 :
     print("No config file provided. Exiting.")
@@ -39,6 +45,8 @@ except FileNotFoundError :
     print("Config file not found. Exiting.")
     sys.exit(1)
 
+print("Parsing config file...")
+
 config_line = config.readline()
 
 while config_line :
@@ -49,6 +57,8 @@ while config_line :
         settings[args[0]] = args[1]
     config_line = config.readline()
 
+print("Finished.")
+
 command_list = ""
 
 for command in commands.values() :
@@ -56,20 +66,29 @@ for command in commands.values() :
 
 Thread(target=query_worker).start()
 
-pipe_command_path = "/tmp/servmond_command"
-pipe_result_path = "/tmp/servmond_result"
+server_address = '/tmp/servmond'
 
-if not os.path.exists(pipe_command_path) :
-    os.mkfifo(pipe_command_path)
+try :
+    os.unlink(server_address)
+except : None
 
-if not os.path.exists(pipe_result_path) :
-    os.mkfifo(pipe_result_path)
+print("Starting query daemon...")
 
-pipe_command = open(pipe_command_path, 'r')
-pipe_result = None
+server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+server.bind(server_address)
+server.listen(1)
+
+print("Started.")
 
 while not stop :
-    command = pipe_command.readline()
-    pipe_result = open(pipe_result_path, 'w')
-    pipe_result.write(results[command] + "\n")
-    pipe_result.close()
+    connection, address = server.accept()
+    try :
+        query = connection.makefile().readline().strip()
+        if query in results :
+            connection.sendall((results[query] + "\n").encode('utf-8'))
+        elif query in commands:
+            connection.sendall("Loading...".encode('utf-8'))
+        else :
+            connection.sendall("Command not specified.".encode('utf-8'))
+    finally :
+        connection.close()

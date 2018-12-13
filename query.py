@@ -1,14 +1,20 @@
-import sys, os
+#!/bin/python3
 
-pipe_command_path = "/tmp/servmond_command"
-pipe_result_path = "/tmp/servmond_result"
+import os, socket, sys
 
-if not os.path.exists(pipe_command_path) or not os.path.exists(pipe_result_path):
-    print("Daemon not running!")
+if len(sys.argv) == 1 :
+    print("Please specify a command.")
+    sys.exit(1)
+else : command = str(sys.argv[1])
+
+server_address = '/tmp/servmond'
+
+connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+
+try :
+    connection.connect(server_address)
+    connection.sendall((command + "\n").encode('utf-8'))
+    print(connection.makefile().readline().strip())
+except :
+    print("Connection to daemon failed.")
     exit(1)
-
-pipe_command = open(pipe_command_path, 'w')
-pipe_result = open(pipe_result_path, 'r')
-
-pipe_command.write("kernel\n")
-print(pipe_result.read())
