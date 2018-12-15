@@ -1,0 +1,44 @@
+# Maintainer: Your Name <youremail@domain.com>
+pkgname=servmond
+pkgver=0.1
+pkgrel=1
+epoch=
+pkgdesc="A monitoring daemon for remote machines"
+arch=('any')
+url=""
+license=('GPL3')
+groups=()
+depends=('python>=3.7' 'openssh')
+makedepends=()
+checkdepends=()
+optdepends=('systemd: servmond autostart')
+provides=()
+conflicts=()
+replaces=()
+backup=()
+options=()
+install=
+changelog=
+source=("$pkgname-$pkgver.tar.gz")
+noextract=()
+md5sums=()
+validpgpkeys=()
+
+package() {
+	cd "${srcdir}"
+	install -Dm755 servmond.py "${pkgdir}/opt/servmond/servmond.py"
+	install -Dm755 servmond-query.py 
+"${pkgdir}/opt/servmond/servmond-query.py"
+	
+	rm "${pkgdir}/usr/bin/servmond"
+	rm "${pkgdir}/usr/bin/servmond-query"
+	
+	ln -s "${pkgdir}/opt/servmond/servmond.py" 
+"${pkgdir}/usr/bin/servmond"
+	ln -s "${pkgdir}/opt/servmond/servmond-query.py" 
+"${pkgdir}/usr/bin/servmond-query" 
+
+	mkdir -p "${pkgdir}/etc/servmond/conf.d/"
+	cp servmond@.service 
+"${pkgdir}/usr/lib/systemd/system/servmond@.service"
+}

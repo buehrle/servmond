@@ -1,0 +1,13 @@
+[Unit]
+Description=Server monitor for %I
+After=syslog.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+PrivateTmp=true
+WorkingDirectory=/etc/servmond/conf.d/
+ExecStart=/usr/bin/servmond %i.conf
+
+[Install]
+WantedBy=multi-user.target
